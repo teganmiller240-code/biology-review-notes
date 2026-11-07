@@ -117,6 +117,7 @@
     const btnShuffle = document.getElementById('btn-shuffle');
 
     const playlist = [
+// --- PASTE YOUR 72 SONGS FROM PLAYLIST.TXT RIGHT BELOW THIS LINE ---
         { title: "3 Doors Down - Here Without You", url: "3 Doors Down - Here Without You.mp3" },
         { title: "3 Doors Down - Kryptonite", url: "3 Doors Down - Kryptonite.mp3" },
         { title: "311 - Amber", url: "311 - Amber.mp3" },
@@ -190,6 +191,7 @@
         { title: "Weezer - Island In The Sun", url: "Weezer - Island In The Sun.mp3" },
         { title: "Weezer - Say It Ain't So - Original Mix", url: "Weezer - Say It Ain't So - Original Mix.mp3" },
 
+// -------------------------------------------------------------------
     ];
 
     function renderPlaylist() {
@@ -216,13 +218,15 @@
         const currentTrack = playlist[currentIndex];
         document.getElementById(`track-${currentIndex}`).querySelector('.track-title-cell').classList.add('playing-text');
         
-        audioPlayer.src = currentTrack.url;
+        // FIX: encodeURI translates all spaces and symbols into web-safe format automatically
+        audioPlayer.src = encodeURI(currentTrack.url);
+        
         audioPlayer.play().then(() => {
             dockTitle.textContent = currentTrack.title;
             dockStatus.textContent = "Playing";
             btnPlay.textContent = "Pause";
         }).catch(err => {
-            dockStatus.textContent = "Error";
+            dockStatus.textContent = "Error Loading Audio";
             console.error(err);
         });
     }

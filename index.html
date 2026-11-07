@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drive Mix</title>
+<style>
+    :root {
+        --bg-main: #121212;
+        --bg-sidebar: #000000;
+        --bg-dock: #181818;
+        --accent: #1db954;
+        --text-main: #ffffff;
+        --text-dim: #b3b3b3;
+        --hover-bg: #2a2a2a;
+    }
+    body, html {
+        margin: 0; padding: 0; height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: var(--bg-main); color: var(--text-main);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .app-container {
+        display: flex; flex: 1; height: calc(100vh - 90px);
+    }
+    .sidebar {
+        width: 240px; background-color: var(--bg-sidebar); padding: 24px;
+        display: flex; flex-direction: column; box-sizing: border-box;
+    }
+    .sidebar h2 { font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+    .sidebar-menu { list-style: none; padding: 0; margin-top: 15px; }
+    .sidebar-menu li { margin-bottom: 12px; font-weight: bold; cursor: default; }
+    
+    .main-view {
+        flex: 1; background: linear-gradient(to bottom, #2b2b2b, var(--bg-main) 30%);
+        padding: 32px; overflow-y: auto; box-sizing: border-box;
+    }
+    .playlist-header { font-size: 48px; font-weight: 900; margin: 0 0 24px 0; }
+    .track-list { width: 100%; border-collapse: collapse; }
+    .track-list th { text-align: left; color: var(--text-dim); font-size: 12px; padding-bottom: 10px; border-bottom: 1px solid #333; font-weight: normal; }
+    .track-row { cursor: pointer; transition: background-color 0.2s ease; border-radius: 4px; }
+    .track-row:hover { background-color: var(--hover-bg); }
+    .track-row td { padding: 12px 10px; border-radius: 4px; }
+    .track-title-cell { font-weight: 500; }
+    .playing-text { color: var(--accent); }
+    
+    .player-dock {
+        position: fixed; bottom: 0; left: 0; right: 0; height: 90px;
+        background-color: var(--bg-dock); border-top: 1px solid #282828;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 20px; z-index: 100; box-sizing: border-box;
+    }
+    .now-playing { width: 30%; display: flex; flex-direction: column; }
+    .now-playing-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .now-playing-status { font-size: 12px; color: var(--text-dim); }
+    .controls { width: 40%; display: flex; justify-content: center; align-items: center; gap: 20px; }
+    .volume-spacer { width: 30%; }
+    
+    button {
+        background: transparent; border: none; color: var(--text-main); font-weight: bold;
+        font-size: 16px; cursor: pointer; transition: transform 0.1s, color 0.2s;
+    }
+    button:hover { color: var(--accent); transform: scale(1.05); }
+    .btn-main { background-color: var(--text-main); color: #000; padding: 8px 24px; border-radius: 30px; }
+    .btn-main:hover { background-color: var(--accent); color: #000; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="sidebar">
+        <h2>Library</h2>
+        <ul class="sidebar-menu">
+            <li>My spotDL Tracks</li>
+        </ul>
+    </div>
+    
+    <div class="main-view">
+        <h1 class="playlist-header">Drive Mix</h1>
+        <table class="track-list">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>TITLE</th>
+                </tr>
+            </thead>
+            <tbody id="track-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="player-dock">
+    <div class="now-playing">
+        <div class="now-playing-title" id="dock-title">Select a track</div>
+        <div class="now-playing-status" id="dock-status">Ready</div>
+    </div>
+    <div class="controls">
+        <button id="btn-shuffle">Shuf</button>
+        <button id="btn-prev">Prev</button>
+        <button id="btn-play" class="btn-main">Play</button>
+        <button id="btn-next">Next</button>
+    </div>
+    <div class="volume-spacer"></div>
+</div>
+
+<script>
+    const audioPlayer = new Audio(); 
+    let currentIndex = -1;
+    let isShuffle = false;
+
+    const trackTbody = document.getElementById('track-tbody');
+    const dockTitle = document.getElementById('dock-title');
+    const dockStatus = document.getElementById('dock-status');
+    const btnPlay = document.getElementById('btn-play');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    const btnShuffle = document.getElementById('btn-shuffle');
+
+    const playlist = [
+        { title: "3 Doors Down - Here Without You", url: "3 Doors Down - Here Without You.mp3" },
+        { title: "3 Doors Down - Kryptonite", url: "3 Doors Down - Kryptonite.mp3" },
+        { title: "311 - Amber", url: "311 - Amber.mp3" },
+        { title: "311 - Beautiful Disaster", url: "311 - Beautiful Disaster.mp3" },
+        { title: "blink-182 - I Miss You", url: "blink-182 - I Miss You.mp3" },
+        { title: "blink-182 - What's My Age Again", url: "blink-182 - What's My Age Again.mp3" },
+        { title: "Crazy Town - Butterfly", url: "Crazy Town - Butterfly.mp3" },
+        { title: "Eve 6 - Inside Out", url: "Eve 6 - Inside Out.mp3" },
+        { title: "Everclear - Father Of Mine", url: "Everclear - Father Of Mine.mp3" },
+        { title: "Everclear - Wonderful", url: "Everclear - Wonderful.mp3" },
+        { title: "Everlast - What It's Like", url: "Everlast - What It's Like.mp3" },
+        { title: "Foo Fighters - My Hero", url: "Foo Fighters - My Hero.mp3" },
+        { title: "Fuel - Shimmer", url: "Fuel - Shimmer.mp3" },
+        { title: "Green Day - Boulevard of Broken Dreams", url: "Green Day - Boulevard of Broken Dreams.mp3" },
+        { title: "Green Day - Good Riddance (Time of Your Life)", url: "Green Day - Good Riddance (Time of Your Life).mp3" },
+        { title: "Green Day - When I Come Around", url: "Green Day - When I Come Around.mp3" },
+        { title: "Hinder - Lips Of An Angel", url: "Hinder - Lips Of An Angel.mp3" },
+        { title: "Hoobastank - The Reason", url: "Hoobastank - The Reason.mp3" },
+        { title: "Incubus - Are You In", url: "Incubus - Are You In.mp3" },
+        { title: "Incubus - Drive", url: "Incubus - Drive.mp3" },
+        { title: "Incubus - I Miss You", url: "Incubus - I Miss You.mp3" },
+        { title: "Incubus - Pardon Me", url: "Incubus - Pardon Me.mp3" },
+        { title: "Jimmy Eat World - Hear You Me", url: "Jimmy Eat World - Hear You Me.mp3" },
+        { title: "Jimmy Eat World - Sweetness", url: "Jimmy Eat World - Sweetness.mp3" },
+        { title: "Jimmy Eat World - The Middle", url: "Jimmy Eat World - The Middle.mp3" },
+        { title: "Lifehouse - Hanging By A Moment", url: "Lifehouse - Hanging By A Moment.mp3" },
+        { title: "Nirvana - Come As You Are", url: "Nirvana - Come As You Are.mp3" },
+        { title: "Nirvana - Heart Shaped Box - Original Steve Albini 1993 Mix", url: "Nirvana - Heart Shaped Box - Original Steve Albini 1993 Mix.mp3" },
+        { title: "Nirvana - Lithium", url: "Nirvana - Lithium.mp3" },
+        { title: "Nirvana - Something In The Way", url: "Nirvana - Something In The Way.mp3" },
+        { title: "Oasis - Wonderwall", url: "Oasis - Wonderwall.mp3" },
+        { title: "Pearl Jam - Daughter - Remastered", url: "Pearl Jam - Daughter - Remastered.mp3" },
+        { title: "Pearl Jam - Even Flow", url: "Pearl Jam - Even Flow.mp3" },
+        { title: "Phantom Planet - California - Tchad Blake Mix", url: "Phantom Planet - California - Tchad Blake Mix.mp3" },
+        { title: "Radiohead - Creep", url: "Radiohead - Creep.mp3" },
+        { title: "Red Hot Chili Peppers - By the Way", url: "Red Hot Chili Peppers - By the Way.mp3" },
+        { title: "Red Hot Chili Peppers - Californication", url: "Red Hot Chili Peppers - Californication.mp3" },
+        { title: "Red Hot Chili Peppers - Dani California", url: "Red Hot Chili Peppers - Dani California.mp3" },
+        { title: "Red Hot Chili Peppers - Scar Tissue", url: "Red Hot Chili Peppers - Scar Tissue.mp3" },
+        { title: "Red Hot Chili Peppers - Snow (Hey Oh)", url: "Red Hot Chili Peppers - Snow (Hey Oh).mp3" },
+        { title: "Red Hot Chili Peppers - Soul to Squeeze", url: "Red Hot Chili Peppers - Soul to Squeeze.mp3" },
+        { title: "Red Hot Chili Peppers - Under the Bridge", url: "Red Hot Chili Peppers - Under the Bridge.mp3" },
+        { title: "Semisonic - Closing Time", url: "Semisonic - Closing Time.mp3" },
+        { title: "Silversun Pickups - Lazy Eye", url: "Silversun Pickups - Lazy Eye.mp3" },
+        { title: "Staind - It's Been Awhile", url: "Staind - It's Been Awhile.mp3" },
+        { title: "Staind - Outside", url: "Staind - Outside.mp3" },
+        { title: "Stone Sour - Through Glass", url: "Stone Sour - Through Glass.mp3" },
+        { title: "Stone Temple Pilots - Interstate Love Song - 2019 Remaster", url: "Stone Temple Pilots - Interstate Love Song - 2019 Remaster.mp3" },
+        { title: "Stone Temple Pilots - Plush - 2017 Remaster", url: "Stone Temple Pilots - Plush - 2017 Remaster.mp3" },
+        { title: "Sublime - Badfish", url: "Sublime - Badfish.mp3" },
+        { title: "Sublime - Santeria", url: "Sublime - Santeria.mp3" },
+        { title: "Sublime - What I Got", url: "Sublime - What I Got.mp3" },
+        { title: "Sublime - Wrong Way", url: "Sublime - Wrong Way.mp3" },
+        { title: "Sugar Ray - Fly", url: "Sugar Ray - Fly.mp3" },
+        { title: "Sum 41 - In Too Deep", url: "Sum 41 - In Too Deep.mp3" },
+        { title: "Switchfoot - Dare You To Move", url: "Switchfoot - Dare You To Move.mp3" },
+        { title: "Switchfoot - Meant to Live", url: "Switchfoot - Meant to Live.mp3" },
+        { title: "The Fray - How to Save a Life", url: "The Fray - How to Save a Life.mp3" },
+        { title: "The Killers - When You Were Young", url: "The Killers - When You Were Young.mp3" },
+        { title: "The Smashing Pumpkins - 1979 - Remastered 2012", url: "The Smashing Pumpkins - 1979 - Remastered 2012.mp3" },
+        { title: "The Smashing Pumpkins - Bullet With Butterfly Wings - Remastered 2012", url: "The Smashing Pumpkins - Bullet With Butterfly Wings - Remastered 2012.mp3" },
+        { title: "The Smashing Pumpkins - Cherub Rock - 2011 Remaster", url: "The Smashing Pumpkins - Cherub Rock - 2011 Remaster.mp3" },
+        { title: "The Smashing Pumpkins - Today - 2011 Remaster", url: "The Smashing Pumpkins - Today - 2011 Remaster.mp3" },
+        { title: "The Smashing Pumpkins - Today", url: "The Smashing Pumpkins - Today.mp3" },
+        { title: "The White Stripes - Seven Nation Army", url: "The White Stripes - Seven Nation Army.mp3" },
+        { title: "Third Eye Blind - Graduate", url: "Third Eye Blind - Graduate.mp3" },
+        { title: "Third Eye Blind - Jumper - 1998 Edit", url: "Third Eye Blind - Jumper - 1998 Edit.mp3" },
+        { title: "Third Eye Blind - Never Let You Go - 2008 Remaster", url: "Third Eye Blind - Never Let You Go - 2008 Remaster.mp3" },
+        { title: "Third Eye Blind - Semi-Charmed Life", url: "Third Eye Blind - Semi-Charmed Life.mp3" },
+        { title: "Weezer - Beverly Hills", url: "Weezer - Beverly Hills.mp3" },
+        { title: "Weezer - Island In The Sun", url: "Weezer - Island In The Sun.mp3" },
+        { title: "Weezer - Say It Ain't So - Original Mix", url: "Weezer - Say It Ain't So - Original Mix.mp3" },
+
+    ];
+
+    function renderPlaylist() {
+        trackTbody.innerHTML = '';
+        playlist.forEach((track, index) => {
+            const tr = document.createElement('tr');
+            tr.className = 'track-row';
+            tr.id = `track-${index}`;
+            tr.innerHTML = `
+                <td style="color: #b3b3b3;">${index + 1}</td>
+                <td class="track-title-cell">${track.title}</td>
+            `;
+            tr.onclick = () => loadAndPlay(index);
+            trackTbody.appendChild(tr);
+        });
+    }
+
+    function loadAndPlay(index) {
+        if (index < 0 || index >= playlist.length) return;
+        if (currentIndex !== -1) {
+            document.getElementById(`track-${currentIndex}`).querySelector('.track-title-cell').classList.remove('playing-text');
+        }
+        currentIndex = index;
+        const currentTrack = playlist[currentIndex];
+        document.getElementById(`track-${currentIndex}`).querySelector('.track-title-cell').classList.add('playing-text');
+        
+        audioPlayer.src = currentTrack.url;
+        audioPlayer.play().then(() => {
+            dockTitle.textContent = currentTrack.title;
+            dockStatus.textContent = "Playing";
+            btnPlay.textContent = "Pause";
+        }).catch(err => {
+            dockStatus.textContent = "Error";
+            console.error(err);
+        });
+    }
+
+    btnShuffle.onclick = () => {
+        isShuffle = !isShuffle;
+        btnShuffle.style.color = isShuffle ? 'var(--accent)' : 'var(--text-main)';
+    };
+
+    btnPlay.onclick = () => {
+        if (currentIndex === -1) {
+            loadAndPlay(0);
+            return;
+        }
+        if (audioPlayer.paused) {
+            audioPlayer.play();
+            btnPlay.textContent = "Pause";
+            dockStatus.textContent = "Playing";
+        } else {
+            audioPlayer.pause();
+            btnPlay.textContent = "Play";
+            dockStatus.textContent = "Paused";
+        }
+    };
+
+    btnNext.onclick = () => {
+        if (isShuffle && playlist.length > 1) {
+            let nextIndex;
+            do {
+                nextIndex = Math.floor(Math.random() * playlist.length);
+            } while (nextIndex === currentIndex);
+            loadAndPlay(nextIndex);
+        } else {
+            if (currentIndex < playlist.length - 1) loadAndPlay(currentIndex + 1);
+            else loadAndPlay(0); 
+        }
+    };
+    
+    btnPrev.onclick = () => {
+        if (currentIndex > 0) loadAndPlay(currentIndex - 1);
+    };
+
+    audioPlayer.onended = () => {
+        btnNext.click();
+    };
+
+    renderPlaylist();
+</script>
+</body>
+</html>
